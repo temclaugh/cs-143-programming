@@ -12,17 +12,17 @@ class LinearTopo(Topo):
     def __init__(self, k=2, **opts):
     	super(LinearTopo, self).__init__(**opts)
 
-	self.k = k
+    self.k = k
 
-	lastSwitch = None
-	for i in irange(1, k):
-	    host = self.addHost('h%s' % i, cpu=.5/k)
-	    switch = self.addSwitch('s%s' % i)
-	    linkopts = dict(bw=10, delay='5ms', loss=1, max_queue_size=1000, use_htb=True)
-	    self.addLink(host, switch, **linkopts)
-	    if lastSwitch:
-	        self.addLink(switch, lastSwitch, **linkopts)
-	    lastSwitch = switch
+    lastSwitch = None
+    for i in irange(1, k):
+        host = self.addHost('h%s' % i, cpu=.5/k)
+        switch = self.addSwitch('s%s' % i)
+        linkopts = dict(bw=10, delay='5ms', loss=1, max_queue_size=1000, use_htb=True)
+        self.addLink(host, switch, **linkopts)
+        if lastSwitch:
+            self.addLink(switch, lastSwitch, **linkopts)
+        lastSwitch = switch
 
 def perfTest():
     topo = LinearTopo(k=4)
