@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import Counter
 
 from mininet.topo import Topo
 from mininet.net import Mininet
@@ -20,24 +20,24 @@ class CustomTopo(Topo):
         hosts = []
 
         core = self.addSwitch('c1')
-        nodes = [core]
         levels = {'c' : 'a', 'a' : 'e', 'e' : 'h'}
         q = [(core, 'c', 0)]
-        counts = defaultdict(lambda: 0)
+        counts = Counter()
 
+        # breadth-first traversal
         while q != []:
             parent, nodeType, level = q.pop(0)
+            childNodeType = levels[nodeType]
             for i in irange(1, fanout):
-                childNodeType = levels[nodeType]
                 counts[childNodeType] += 1
                 identifier = '%s%d' % (childNodeType, counts[childNodeType])
                 if childNodeType == 'h':
                     child = self.addHost(identifier, cpu=.5/fanout)
                 else:
                     child = self.addSwitch(identifier)
-                self.addLink(parent, child, linkopts[level])
+                self.addLink(parent, child, **(linkopts[level]))
                 if childNodeType != 'h':
-                    q.append((child, levels[childNodeType], level + 1))
+                    q.append((child, childNodeType, level + 1))
                 print "creating link to %s" % identifier
 
 
