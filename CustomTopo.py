@@ -41,8 +41,8 @@ class CustomTopo(Topo):
                 print "creating link to %s" % identifier
 
 
-linkopts1 = dict(bw=10, delay='5ms', loss=10, max_queue_size=1000, use_htb=True)
-linkopts2 = dict(bw=10, delay='5ms', loss=10, max_queue_size=1000, use_htb=True)
-linkopts3 = dict(bw=10, delay='5ms', loss=10, max_queue_size=1000, use_htb=True)
+linkopts1 = dict(bw=10, delay='5ms', loss=0, max_queue_size=1000, use_htb=True)
+linkopts2 = dict(bw=10, delay='5ms', loss=0, max_queue_size=1000, use_htb=True)
+linkopts3 = dict(bw=10, delay='5ms', loss=0, max_queue_size=1000, use_htb=True)
 
 topos = {'custom': (lambda: CustomTopo(linkopts1, linkopts2, linkopts3))}
