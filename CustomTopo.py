@@ -10,15 +10,11 @@ from mininet.log import setLogLevel
 class CustomTopo(Topo):
     def __init__(self, linkopts1, linkopts2, linkopts3, fanout=2, **opts):
     	Topo.__init__(self, **opts)
-
     	self.fanout = fanout
-
         linkopts = [linkopts1, linkopts2, linkopts3]
-
         aggregateSwitches = []
         edgeSwitches = []
         hosts = []
-
         core = self.addSwitch('c1')
         levels = {'c' : 'a', 'a' : 'e', 'e' : 'h'}
         q = [(core, 'c', 0)]
@@ -38,11 +34,9 @@ class CustomTopo(Topo):
                 self.addLink(parent, child, **(linkopts[level]))
                 if childNodeType != 'h':
                     q.append((child, childNodeType, level + 1))
-                print "creating link to %s" % identifier
 
-
-linkopts1 = dict(bw=10, delay='5ms', loss=10, max_queue_size=1000, use_htb=True)
-linkopts2 = dict(bw=10, delay='5ms', loss=10, max_queue_size=1000, use_htb=True)
-linkopts3 = dict(bw=10, delay='5ms', loss=10, max_queue_size=1000, use_htb=True)
+linkopts1 = dict(bw=10, delay='5ms', loss=0, max_queue_size=1000, use_htb=True)
+linkopts2 = dict(bw=10, delay='5ms', loss=0, max_queue_size=1000, use_htb=True)
+linkopts3 = dict(bw=10, delay='5ms', loss=0, max_queue_size=1000, use_htb=True)
 
 topos = {'custom': (lambda: CustomTopo(linkopts1, linkopts2, linkopts3))}
