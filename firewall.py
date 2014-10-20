@@ -14,6 +14,8 @@ policyFile = "%s/pox/pox/misc/firewall-policies.csv" % os.environ[ 'HOME' ]
 
 ''' Add your global variables here ... '''
 rules = []
+
+# Read rules from csv into an array
 with open(policyFile) as f:
 	content = f.readlines()
 	for idx, line in enumerate(content):
@@ -21,9 +23,12 @@ with open(policyFile) as f:
 			properties = line.split(",")
 			properties[-1] = properties[-1].strip()
 		else:
-			rules.append({})
 			linearray = line.split(",")
 			linearray[-1] = linearray[-1].strip()
+			# Incomplete rules
+			if len(linearray) != len(properties):
+				continue
+			rules.append({})
 			for prop in properties:
 				rules[idx-1][prop] = linearray[properties.index(prop)]
 
@@ -36,20 +41,23 @@ class Firewall (EventMixin):
         log.debug("Enabling Firewall Module")
 
     def _handle_ConnectionUp (self, event):    
-        ''' Add your logic here ... '''
         
 	
-	for rule in rules:
-		log.debug("Installing rule from %s to %s", rule['mac_0'], rule['mac_1'] )
-	
+	for idx,rule in enumerate(rules):
+		log.debug("Installing rule %i", rule['id'] )
 		msg = of.ofp_flow_mod()
-		msg.priority = 100
-		msg.match.dl_src = rule['mac_0']
-		msg.match.dl_dst =  rule['mac_1']
-		msg.actions.append(of.ofp_action_output(port = of.OFPP_NONE))	
+		
+		# Avoid Conflicts
+		msg.priority = 1000 * idx
+		
+		msg.match.dl_src = EthAddr(rule['mac_0'])
+		msg.match.dl_dst =  EthAddr(rule['mac_1'])
+		
+		# Do nothing (DROP)
+		msg.actions = []	
+		
 		#Send message to switch
 		event.connection.send(msg)
-    
         log.debug("Firewall rules installed on %s", dpidToStr(event.dpid))
 
 def launch ():
