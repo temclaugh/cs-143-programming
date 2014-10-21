@@ -1,0 +1,6 @@
+To run this code place both dijkstra.py and delays.csv into the /pox/pox/misc directory on your VM then run
+
+` cd ~ `
+` pox.py misc.dijkstra & `
+` sudo mn --custom topo.py --topo custom --controller remote --mac `
+

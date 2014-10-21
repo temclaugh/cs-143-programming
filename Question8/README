@@ -1,0 +1,5 @@
+To run this code place both firewall.py and firewall-policies.csv into the /pox/pox/misc directory on your VM then run
+
+` cd ~ `
+` pox.py forwarding.l2_learning misc.firewall & `
+` sudo mn --topo single,3 --controller remote --mac `
