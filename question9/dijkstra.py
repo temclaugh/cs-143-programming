@@ -3,13 +3,17 @@ import pox.openflow.libopenflow_01 as of
 from pox.lib.revent import *
 from pox.lib.util import dpidToStr
 from pox.lib.addresses import EthAddr
+from pox.lib.addresses import IPAddr
 from collections import namedtuple
 from collections import defaultdict
+from copy import deepcopy
 import os
 import csv
 
 log = core.getLogger()
 delayFile = "delay.csv"
+
+hosts = {'h13': 's12', 'h15': 's14', 'h17': 's16', 'h19': 's18'}
 
 # switches of links given in delay.csv
 linkNames = {
@@ -36,19 +40,11 @@ portMappings = {
     'h19': {'s18': 0},
 }
 
-macMappings = {
-    '00:00:00:00:00:01': 'h13',
-    '00:00:00:00:00:02': 'h15',
-    '00:00:00:00:00:04': 'h19',
-    '00:00:00:00:00:03': 'h17',
-}
-
-hardCodedPorts = {
-    's11': {'h13': 1, 'h15': 1, 'h17': 2, 'h19': 2},
-    's12': {'h13': 1, 'h15': 3, 'h17': 5, 'h19': 4},
-    's14': {'h13': 2, 'h15': 1, 'h17': 3, 'h19': 4},
-    's16': {'h13': 4, 'h15': 2, 'h17': 1, 'h19': 3},
-    's18': {'h13': 4, 'h15': 5, 'h17': 2, 'h19': 1},
+hostMappings = {
+    'h13': ('10.0.0.1', '00:00:00:00:00:01'),
+    'h15': ('10.0.0.2', '00:00:00:00:00:02'),
+    'h17': ('10.0.0.3', '00:00:00:00:00:03'),
+    'h19': ('10.0.0.4', '00:00:00:00:00:04'),
 }
 
 class Dijkstra(EventMixin):
@@ -60,98 +56,74 @@ class Dijkstra(EventMixin):
 
         self.delays = {}
         self.switches = set()
+	self.neighbors = defaultdict(set)
         with open(delayFile, 'r') as csvfile:
             links = csv.reader(csvfile, delimiter=',')
             links.next() # skip first line: "link,delay"
             for linkName, delay in links:
                 s1, s2 = linkNames[linkName]
                 self.delays[(s1, s2)] = int(delay)
+		self.delays[(s2, s1)] = int(delay)
                 self.switches.add(s1)
                 self.switches.add(s2)
+		self.neighbors[s1].add(s2)
+		self.neighbors[s2].add(s1)
+
 
     def _dijkstra(self, source):
-        distances = {source: 0}
-        previous = defaultdict(None)
-        unseen = set()
-        for switch in self.switches:
-            if switch != source:
-                distances[switch] = float("inf")
-                previous[switch] = None
-            unseen.add(switch)
+	distances = defaultdict(lambda: float('inf'))
+	distances[source] = 0
+	previous = {}
+	unseen = deepcopy(self.switches)
+	while unseen != set():
+	    minDist = float('inf')
+	    u = min(unseen, key=lambda x: distances[x])
+	    unseen.remove(u)
+	    for v in self.neighbors[u]:
+                alt = distances[u] + self.delays[(u, v)]
+		if alt <= distances[v]:
+		    distances[v] = alt
+		    previous[v] = u
 
-        # create neighbor table
-        neighbors = defaultdict(set)
-        for s1, s2 in self.delays.iterkeys():
-            neighbors[s1].add(s2)
-            neighbors[s2].add(s1)
+	return distances, previous
 
-        # run dijktras
-        while unseen != set():
-            u = None
-            minDist = float("inf")
-            for switch in unseen:
-                if distances[switch] <= minDist:
-                    minDist = distances[switch]
-                    u = switch
-            unseen.remove(switch)
-
-            for neighbor in neighbors[u]:
-                a = min(u, neighbor)
-                b = max(u, neighbor)
-                alt = distances[u] + self.delays[(a, b)]
-                if alt < distances[neighbor]:
-                    distances[neighbor] = alt
-                    previous[neighbor] = u
-
-	print previous
-        return previous
-
-
-    # returns a mapping from mac address to port numbers
     def _getPortMapping(self, source):
-        previous = self._dijkstra(source)
-        routingTable = {}
-        for switch in self.switches:
-	    if switch == source:
+	distances, previous = self._dijkstra(source)
+	ports = {}
+	for destHost, destSwitch in hosts.iteritems():
+	    if source == destSwitch:
+	        ports[destHost] = portMappings[source][destHost]
 		continue
-	    print "finding mapping from", switch, "to", source
-	    try:
-                destination = previous[switch]
-                while previous[destination] != switch:
-                    destination = previous[destination]
-                routingTable[portMapping[source]][switch] = destination
-	    except:
-	        print source
-		print destination
-		print previous
-		raise KeyError
-        return routingTable
+	    while source != previous[destSwitch]:
+                destSwitch = previous[destSwitch]
+	    ports[destHost] = portMappings[source][destSwitch]
+
+    	return ports
 
     def _handle_ConnectionUp(self, event):
         switch = 's' + str(event.dpid)
-        #routingTable = self._getPortMapping(switch)
+        ports = self._getPortMapping(switch)
 
-        for macAddress, hostName in macMappings.iteritems():
-            #if portMappings[switch].has_key(hostName):
-                #port = portMappings[switch][hostName]
-            #else:
-                #port = routingTable[macAddress]
-	    port = hardCodedPorts[switch][hostName]
-	    print ">>>>", switch, hostName, port
-            msg = of.ofp_flow_mod()
-            msg.match.dl_dst = EthAddr(macAddress)
-            msg.actions.append(of.ofp_action_output(port=port))
-            event.connection.send(msg)
+	for host, (ip, mac) in hostMappings.iteritems():
+	    port = ports[host]
+	    print switch, host, ip, mac, port
 
-        msg = of.ofp_flow_mod()
-        msg.match.dl_dst = EthAddr('FF:FF:FF:FF:FF:FF')
-        msg.actions.append(of.ofp_action_output(port=of.OFPP_FLOOD))
-        event.connection.send(msg)
+            msg_mac = of.ofp_flow_mod()
+            msg_mac.match.dl_dst = EthAddr(mac)
+            msg_mac.actions.append(of.ofp_action_output(port=port))
+	    event.connection.send(msg_mac)
+
+            msg_ip = of.ofp_flow_mod()
+            msg_ip.match.nw_dst = IPAddr(ip)
+	    msg_ip.match.dl_type = 2054
+            msg_ip.actions.append(of.ofp_action_output(port=port))
+	    event.connection.send(msg_ip)
 
         log.debug("Dijkstra installed on %s", dpidToStr(event.dpid))
 
-def launch ():
+def launch():
     '''
     Starting the Dijkstra module
     '''
     core.registerNew(Dijkstra)
+

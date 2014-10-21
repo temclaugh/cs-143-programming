@@ -1,2 +1,0 @@
-alias restart='killall python2.7; sudo mn -c; pox.py misc.dijkstra &'
-alias run='sudo mn --custom topo.py --topo custom --controller remote --mac --link tc'
