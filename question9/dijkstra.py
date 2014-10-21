@@ -11,7 +11,7 @@ import os
 import csv
 
 log = core.getLogger()
-delayFile = "delay.csv"
+delayFile = "%s/pox/pox/misc/delay.csv" % os.environ[ 'HOME' ]
 
 hosts = {'h13': 's12', 'h15': 's14', 'h17': 's16', 'h19': 's18'}
 
